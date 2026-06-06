@@ -8,7 +8,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.config import config
 from bot.database.repository import seed_admins, seed_categories
-from bot.database.session import async_session, close_db, init_db
+from bot.database.session import async_session, close_db, init_db, init_engine
 from bot.handlers import get_all_routers
 from bot.middlewares import AntiFloodMiddleware, BannedUserMiddleware
 from bot.utils.logger import setup_logging
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 async def on_startup(bot: Bot) -> None:
     config.validate()
     logger.info("Connecting to database host: %s", config.database_host())
+    init_engine()
     await init_db()
 
     async with async_session() as session:

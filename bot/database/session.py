@@ -12,28 +12,57 @@ from bot.database.base import Base
 
 logger = logging.getLogger(__name__)
 
-engine = create_async_engine(
-    config.database_url,
-    echo=False,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    connect_args=config.db_connect_args(),
-)
+_engine = None
+_session_maker = None
 
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+def init_engine() -> None:
+    global _engine, _session_maker
+    if _engine is not None:
+        return
+
+    url = config.database_url
+    if not url:
+        raise ValueError(
+            "DATABASE_URL is not set.\n\n"
+            "Railway fix:\n"
+            "1. Add PostgreSQL database to your project\n"
+            "2. worker → Variables → + New Variable → Add Reference\n"
+            "3. Select PostgreSQL → choose DATABASE_URL → Add"
+        )
+
+    _engine = create_async_engine(
+        url,
+        echo=False,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        connect_args=config.db_connect_args(),
+    )
+    _session_maker = async_sessionmaker(
+        _engine, class_=AsyncSession, expire_on_commit=False
+    )
+    logger.info("Database engine initialized")
+
+
+def async_session():
+    if _session_maker is None:
+        init_engine()
+    return _session_maker()
 
 
 async def init_db() -> None:
-    async with engine.begin() as conn:
+    init_engine()
+    async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables initialized")
 
 
 async def close_db() -> None:
-    await engine.dispose()
-    logger.info("Database connection closed")
+    if _engine is not None:
+        await _engine.dispose()
+        logger.info("Database connection closed")
 
 
 @asynccontextmanager
