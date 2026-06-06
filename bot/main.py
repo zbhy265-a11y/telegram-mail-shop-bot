@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 async def on_startup(bot: Bot) -> None:
     config.validate()
+    logger.info("Connecting to database...")
     await init_db()
 
     async with async_session() as session:
