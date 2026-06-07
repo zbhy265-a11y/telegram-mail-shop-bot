@@ -13,8 +13,10 @@ class Config:
     min_deposit: float = float(os.getenv("MIN_DEPOSIT", "1.0"))
     currency: str = os.getenv("CURRENCY_SYMBOL", "$")
 
-    def db_connect_args(self) -> dict:
-        return {}
+   def db_connect_args(self) -> dict:
+    return {
+        "ssl": False
+    }
 
     def database_host(self) -> str:
         return _database_host(self.database_url)
