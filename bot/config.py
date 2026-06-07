@@ -1,3 +1,66 @@
+import os
+from dataclasses import dataclass, field
+from dotenv import load_dotenv
+
+# .env file থেকে environment variables লোড করছি
+load_dotenv()
+
+def _parse_admin_ids() -> list[int]:
+    raw = os.getenv("ADMIN_IDS", "")
+    return [int(x.strip()) for x in raw.split(",") if x.strip().isdigit()]
+
+def _normalize_database_url(url: str) -> str:
+    if not url:
+        return url
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return url
+
+def _resolve_database_url() -> str:
+    """উত্তম ডেটাবেস URL নির্ধারণ করে (Railway private URL প্রাধান্য)"""
+    candidates = [
+        os.getenv("DATABASE_PRIVATE_URL", ""),
+        os.getenv("DATABASE_URL", ""),
+    ]
+
+    pg_host = os.getenv("PGHOST", "")
+    if pg_host:
+        pg_user = os.getenv("PGUSER", "postgres")
+        pg_pass = os.getenv("PGPASSWORD", "")
+        pg_port = os.getenv("PGPORT", "5432")
+        pg_db = os.getenv("PGDATABASE", "railway")
+        candidates.append(
+            f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}"
+        )
+
+    for raw in candidates:
+        url = _normalize_database_url(raw.strip())
+        if url and not _is_placeholder_database_url(url):
+            return url
+
+    return _normalize_database_url(os.getenv("DATABASE_URL", "").strip())
+
+def _is_placeholder_database_url(url: str) -> bool:
+    placeholders = ("@host:", "@host/", "user:password@host", "localhost:5432/railway")
+    lowered = url.lower()
+    return any(p in lowered for p in placeholders)
+
+def _database_host(url: str) -> str:
+    try:
+        return url.split("@")[1].split("/")[0].split(":")[0]
+    except (IndexError, AttributeError):
+        return "unknown"
+
+def _database_ssl_required(url: str) -> bool:
+    if os.getenv("DATABASE_SSL", "").lower() in ("1", "true", "yes"):
+        return True
+    if os.getenv("RAILWAY_ENVIRONMENT"):
+        return True
+    return "localhost" not in url and "127.0.0.1" not in url
+
+@dataclass
 class Config:
     bot_token: str = os.getenv("BOT_TOKEN", "")
     database_url: str = field(default_factory=_resolve_database_url)
@@ -14,9 +77,10 @@ class Config:
     currency: str = os.getenv("CURRENCY_SYMBOL", "$")
 
     def db_connect_args(self) -> dict:
-        return {
-            "ssl": False
-        }
+        """SSL প্রয়োজন হলে সেটি নির্ধারণ করবে"""
+        if _database_ssl_required(self.database_url):
+            return {"ssl": True}
+        return {}
 
     def database_host(self) -> str:
         return _database_host(self.database_url)
@@ -33,6 +97,4 @@ class Config:
 
         if _is_placeholder_database_url(self.database_url):
             raise ValueError(
-                "DATABASE_URL is still a placeholder (host/user/password). "
-                "Delete it and add PostgreSQL reference from Railway dashboard."
-            )
+                "DATABASE_URL is still
