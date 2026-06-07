@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 _engine = None
 _session_maker = None
 
-
 def init_engine() -> None:
     global _engine, _session_maker
     if _engine is not None:
@@ -32,7 +31,6 @@ def init_engine() -> None:
         )
 
     logger.warning(f"DATABASE URL = {url}")
-    logger.warning(f"CONNECT ARGS = {config.db_connect_args()}")
 
     _engine = create_async_engine(
         url,
@@ -41,7 +39,6 @@ def init_engine() -> None:
         max_overflow=20,
         pool_pre_ping=True,
         pool_recycle=3600,
-        connect_args=config.db_connect_args(),
     )
 
     _session_maker = async_sessionmaker(
@@ -52,27 +49,22 @@ def init_engine() -> None:
 
     logger.info("Database engine initialized")
 
-
 def async_session():
     if _session_maker is None:
         init_engine()
     return _session_maker()
 
-
 async def init_db() -> None:
     init_engine()
-
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     logger.info("Database tables initialized")
 
-
 async def close_db() -> None:
     if _engine is not None:
         await _engine.dispose()
         logger.info("Database connection closed")
-
 
 @asynccontextmanager
 async def get_session():
