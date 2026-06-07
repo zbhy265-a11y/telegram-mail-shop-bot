@@ -2,7 +2,6 @@ import os
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 
-# .env file থেকে environment variables লোড করছি
 load_dotenv()
 
 def _parse_admin_ids() -> list[int]:
@@ -19,7 +18,7 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 def _resolve_database_url() -> str:
-    """উত্তম ডেটাবেস URL নির্ধারণ করে (Railway private URL প্রাধান্য)"""
+    """Pick the best database URL available (Railway private URL preferred)."""
     candidates = [
         os.getenv("DATABASE_PRIVATE_URL", ""),
         os.getenv("DATABASE_URL", ""),
@@ -77,10 +76,9 @@ class Config:
     currency: str = os.getenv("CURRENCY_SYMBOL", "$")
 
     def db_connect_args(self) -> dict:
-        """SSL প্রয়োজন হলে সেটি নির্ধারণ করবে"""
-        if _database_ssl_required(self.database_url):
-            return {"ssl": True}
-        return {}
+        return {
+            "ssl": False if not os.getenv("DATABASE_SSL", "").lower() in ("1", "true", "yes") else True
+        }
 
     def database_host(self) -> str:
         return _database_host(self.database_url)
@@ -97,4 +95,8 @@ class Config:
 
         if _is_placeholder_database_url(self.database_url):
             raise ValueError(
-                "DATABASE_URL is still
+                "DATABASE_URL is still a placeholder (host/user/password). "
+                "Delete it and add PostgreSQL reference from Railway dashboard."
+            )
+
+config = Config()
