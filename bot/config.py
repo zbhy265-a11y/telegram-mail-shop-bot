@@ -13,10 +13,10 @@ class Config:
     min_deposit: float = float(os.getenv("MIN_DEPOSIT", "1.0"))
     currency: str = os.getenv("CURRENCY_SYMBOL", "$")
 
-   def db_connect_args(self) -> dict:
-    return {
-        "ssl": False
-    }
+    def db_connect_args(self) -> dict:
+        return {
+            "ssl": False
+        }
 
     def database_host(self) -> str:
         return _database_host(self.database_url)
@@ -24,11 +24,13 @@ class Config:
     def validate(self) -> None:
         if not self.bot_token:
             raise ValueError("BOT_TOKEN is required")
+
         if not self.database_url:
             raise ValueError(
                 "DATABASE_URL is required. In Railway: Bot service → Variables → "
                 "Add Reference → PostgreSQL → DATABASE_URL"
             )
+
         if _is_placeholder_database_url(self.database_url):
             raise ValueError(
                 "DATABASE_URL is still a placeholder (host/user/password). "
