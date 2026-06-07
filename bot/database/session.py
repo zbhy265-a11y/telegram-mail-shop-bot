@@ -31,6 +31,9 @@ def init_engine() -> None:
             "3. Select PostgreSQL → choose DATABASE_URL → Add"
         )
 
+    logger.warning(f"DATABASE URL = {url}")
+    logger.warning(f"CONNECT ARGS = {config.db_connect_args()}")
+
     _engine = create_async_engine(
         url,
         echo=False,
@@ -40,9 +43,13 @@ def init_engine() -> None:
         pool_recycle=3600,
         connect_args=config.db_connect_args(),
     )
+
     _session_maker = async_sessionmaker(
-        _engine, class_=AsyncSession, expire_on_commit=False
+        _engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
     )
+
     logger.info("Database engine initialized")
 
 
@@ -54,8 +61,10 @@ def async_session():
 
 async def init_db() -> None:
     init_engine()
+
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
     logger.info("Database tables initialized")
 
 
